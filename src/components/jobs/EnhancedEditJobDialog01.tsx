@@ -653,13 +653,19 @@ interface Job {
   stages?: JobStage[];
   steps: JobStepConfig;
   business_logic_rules?: Record<string, string>;
+  datasource?: string;  // Add this line
+  datadestination?: string;  // Add this line
 }
  
 interface EnhancedEditJobDialogProps {
   job: Job | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (jobId: string, stages: JobStage[]) => void;
+  onSave: (jobId: string, stages: JobStage[], updatedJobData?: {
+    jobName?: string;
+    datasource?: string;
+    datadestination?: string;
+  }) => void;
 }
  
 // Available steps
@@ -1074,15 +1080,33 @@ export default function EnhancedEditJobDialog({
     setSelectedStage(null);
   };
  
-  const handleSave = () => {
-    if (!job) return;
-    const updatedJob = {
-      ...job,
-      category: jobType,
-      id: glueName
-    };
-    onSave(updatedJob.id, stages);
-  };
+const handleSave = () => {
+  if (!job) return;
+  
+  // Extract datasource and datadestination from upload_center stage config
+  const uploadCenterStage = stages.find(s => s.type === 'upload_center');
+  const datasource = uploadCenterStage?.config?.sourcePath || job.datasource || '';
+  const datadestination = uploadCenterStage?.config?.destinationPath || job.datadestination || '';
+  
+  console.log('💾 Saving job with extracted paths:', { 
+    datasource, 
+    datadestination,
+    uploadCenterConfig: uploadCenterStage?.config,
+    jobName 
+  });
+  
+  // Pass the updated data to parent
+  onSave(job.id, stages, {
+    jobName,
+    datasource,
+    datadestination
+  });
+  
+  toast({
+    title: "Job Updated",
+    description: `Job configuration saved successfully`,
+  });
+};
  
   if (!job) return null;
  

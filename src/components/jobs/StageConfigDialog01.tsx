@@ -100,32 +100,47 @@ export default function StageConfigDialog({
     }
   }, [stage]);
 
-  const handleSave = () => {
-    const updatedStage: JobStage = {
-      ...stage,
-      config: stageConfig,
-    };
-    onSave(updatedStage);
-    switch (stage.type) {
-      case 'loading':
-        localStorage.setItem('schema', 'used');
-        break;
-      case 'validation':
-        localStorage.setItem('rules', 'used');
-        break;
-      case 'processing':
-        localStorage.setItem('ner', 'used');
-        break;
-      case 'collection':
-        localStorage.setItem('businesslogic', 'used');
-        break;
-      case 'connection':
-        localStorage.setItem('datatransformations', 'executed');
-        break;
-      default:
-        break;
-    }
+const handleSave = () => {
+  console.log('💾 Saving stage config:', stageConfig);
+  
+  const updatedStage: JobStage = {
+    ...stage,
+    config: stageConfig,
   };
+  
+  // Log what we're saving
+  if (stage.type === 'upload_center') {
+    console.log('💾 Saving upload_center with paths:', {
+      sourcePath: stageConfig.sourcePath,
+      destinationPath: stageConfig.destinationPath
+    });
+  }
+  
+  onSave(updatedStage);
+  
+  // Update localStorage markers
+  switch (stage.type) {
+    case 'loading':
+      localStorage.setItem('schema', 'used');
+      break;
+    case 'validation':
+      localStorage.setItem('rules', 'used');
+      break;
+    case 'processing':
+      localStorage.setItem('ner', 'used');
+      break;
+    case 'collection':
+      localStorage.setItem('businesslogic', 'used');
+      break;
+    case 'connection':
+      localStorage.setItem('datatransformations', 'executed');
+      break;
+    default:
+      break;
+  }
+  
+  onOpenChange(false);
+};
 
   const handleCancel = () => {
     switch (stage.type) {
@@ -180,11 +195,14 @@ const renderStageSpecificConfig = () => {
   }
 
   // Handle each stage type explicitly with correct props
-  if (stage.type === 'upload_center') {
+   if (stage.type === 'upload_center') {
     return (
       <CompactDataUploadStep
         config={stageConfig}
-        onConfigChange={setStageConfig}
+        onConfigChange={(newConfig) => {
+          console.log('📝 Config changed in CompactDataUploadStep:', newConfig);
+          setStageConfig(newConfig);
+        }}
         jobDatasource={job?.datasource}
         jobDatadestination={job?.datadestination}
       />

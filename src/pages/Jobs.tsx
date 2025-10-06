@@ -1505,16 +1505,25 @@ export default function Jobs() {
     setDateRangeFilter(range)
   }
  
-const handleSaveJobStages = async (jobId: string, stages: JobStage[]) => {
-  if (!validateLocalStorage()) return
-  const job = jobs.find(j => j.id === jobId)
+const handleSaveJobStages = async (
+  jobId: string, 
+  stages: JobStage[], 
+  updatedJobData?: {
+    jobName?: string;
+    datasource?: string;
+    datadestination?: string;
+  }
+) => {
+  if (!validateLocalStorage()) return;
+  
+  const job = jobs.find(j => j.id === jobId);
   if (!job) {
     toast({
       variant: "destructive",
       title: "Error",
       description: "Job not found.",
-    })
-    return
+    });
+    return;
   }
 
   try {
@@ -1523,51 +1532,81 @@ const handleSaveJobStages = async (jobId: string, stages: JobStage[]) => {
       ner: stages.some(s => s.type === 'processing') ? 'executed' : 'skipped',
       businessLogic: stages.some(s => s.type === 'collection') ? 'executed' : 'skipped',
       datatransformations: stages.some(s => s.type === 'connection') ? 'executed' : 'skipped',
-    }
+    };
 
-    // Properly construct scheduleDetails based on triggerType
     const scheduleDetails = job.triggerType === "SCHEDULE" 
       ? {
           frequency: (job.scheduleDetails as any)?.frequency || "daily",
           time: (job.scheduleDetails as any)?.time || "00:00"
         }
-      : undefined; // Don't include scheduleDetails for File trigger type
+      : undefined;
 
     const editJobRequest: EditJobRequest = {
       jobId: job.jobId,
-      jobName: job.jobName,
+      jobName: updatedJobData?.jobName || job.jobName,
       triggerType: job.triggerType,
       steps,
-      datasource: job.datasource,
-      datadestination: job.datadestination,
-      ...(scheduleDetails && { scheduleDetails }), // Only include if not undefined
+      datasource: updatedJobData?.datasource || job.datasource,
+      datadestination: updatedJobData?.datadestination || job.datadestination,
+      ...(scheduleDetails && { scheduleDetails }),
       business_logic_rules: job.business_logic_rules || {},
-    }
+    };
 
-    console.log("Edit Job Request Payload:", editJobRequest); // Debug log
+    console.log("📤 Edit Job Request Payload:", editJobRequest);
 
-    const response: EditJobResponse = await editJob(editJobRequest)
+    const response: EditJobResponse = await editJob(editJobRequest);
+    
     if (response.success) {
+      // Update local state with ALL changes
       setJobs((prevJobs) =>
-        prevJobs.map((j) => (j.id === jobId ? { ...j, stages, steps, business_logic_rules: job.business_logic_rules } : j))
-      )
+        prevJobs.map((j) => (j.id === jobId ? { 
+          ...j, 
+          name: updatedJobData?.jobName || j.name,
+          jobName: updatedJobData?.jobName || j.jobName,
+          datasource: updatedJobData?.datasource || j.datasource,
+          datadestination: updatedJobData?.datadestination || j.datadestination,
+          stages, 
+          steps, 
+          business_logic_rules: job.business_logic_rules 
+        } : j))
+      );
+      
+      // Update localStorage
+      const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (storedData) {
+        const data = JSON.parse(storedData);
+        data.jobs = data.jobs.map((j: LocalJob) => 
+          j.id === jobId ? { 
+            ...j, 
+            name: updatedJobData?.jobName || j.name,
+            jobName: updatedJobData?.jobName || j.jobName,
+            datasource: updatedJobData?.datasource || j.datasource,
+            datadestination: updatedJobData?.datadestination || j.datadestination,
+            stages, 
+            steps 
+          } : j
+        );
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+      }
+      
       toast({
         title: "Job Updated",
-        description: "Job stages have been updated successfully.",
-      })
+        description: "Job stages and configuration have been updated successfully.",
+      });
     } else {
-      throw new Error(response.message || "Failed to update job.")
+      throw new Error(response.message || "Failed to update job.");
     }
   } catch (error: any) {
+    console.error("❌ Error updating job:", error);
     toast({
       variant: "destructive",
       title: "Error",
       description: error.message || "Failed to update job stages.",
-    })
+    });
   } finally {
-    setEditingJob(null)
+    setEditingJob(null);
   }
-}
+};
  
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
